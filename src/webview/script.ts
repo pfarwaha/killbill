@@ -1,147 +1,124 @@
 declare function acquireVsCodeApi(): {
     postMessage(message: any): void;
+    getState(): any;
+    setState(state: any): void;
 };
 
-import { AdditionRequest } from './requests';
-
-let requests: AdditionRequest[] = [];
-let isMultiThreaded = true;
-
-function submitRequest() {
-    console.log('Attempting to submit request...');
-    const num1 = document.getElementById('num1') as HTMLInputElement;
-    const num2 = document.getElementById('num2') as HTMLInputElement;
-    
-    if (num1.value && num2.value) {
-        const request = new AdditionRequest(
-            Number(num1.value),
-            Number(num2.value)
-        );
-        
-        console.log('Submitting request:', request);
-        vscode.postMessage({
-            command: 'addRequest',
-            data: request
-        });
-        // Clear input fields after submit
-        num1.value = '';
-        num2.value = '';
-    } else {
-        console.warn('Submit failed: Missing input values');
-    }
+interface Request {
+    id: string;
+    input1: number;
+    input2: number;
+    status: 'pending' | 'queued' | 'processing' | 'completed';
+    result?: number;
 }
 
-function startProcessing(requestId: string) {
-    console.log('Starting processing for request:', requestId);
-    vscode.postMessage({
-        command: 'startProcessing',
-        data: { requestId }
-    });
+interface State {
+    requests: Request[];
 }
 
-function switchExecutor() {
-    isMultiThreaded = !isMultiThreaded;
-    vscode.postMessage({
-        command: 'switchExecutor',
-        data: { useMultiThreaded: isMultiThreaded }
-    });
-    updateExecutorButton();
-}
+// Initialize state
+let state: State = {
+    requests: []
+};
 
-function updateExecutorButton() {
-    const button = document.getElementById('switchExecutor');
-    if (button) {
-        button.textContent = isMultiThreaded ? 'Switch to Single Thread' : 'Switch to Multi Thread';
-    }
-}
-
-function updateTable() {
-    console.log('Updating table with requests:', requests);
-    const tbody = document.getElementById('requestsTableBody');
-    if (!tbody) {
-        console.error('Table body element not found');
-        return;
-    }
-
-    tbody.innerHTML = requests.map(request => 
-        '<tr>' +
-            '<td>' + request.id + '</td>' +
-            '<td>Add ' + request.input1 + ' + ' + request.input2 + '</td>' +
-            '<td>' +
-                (request.status === 'pending' ? 
-                    '<button class="process-button" data-request-id="' + request.id + '">Start</button>' :
-                    request.status === 'queued' ? 
-                    '<button disabled>Queued...</button>' :
-                    request.status === 'processing' ? 
-                    '<button disabled>Processing...</button>' :
-                    '<button disabled>Completed</button>'
-                ) +
-            '</td>' +
-            '<td class="status-' + request.status + '">' +
-                (request.result !== undefined ? request.result : '-') +
-            '</td>' +
-        '</tr>'
-    ).join('');
-
-    // Add event listeners to the new process buttons
-    document.querySelectorAll('.process-button').forEach(button => {
-        button.addEventListener('click', (e) => {
-            const requestId = (e.currentTarget as HTMLElement).getAttribute('data-request-id');
-            if (requestId) {
-                startProcessing(requestId);
-            }
-        });
-    });
-}
-
-// Initialize VS Code API
+// Get VS Code API
 const vscode = acquireVsCodeApi();
-console.log('VS Code API initialized');
 
-// Add event listeners when the document is ready
-document.addEventListener('DOMContentLoaded', () => {
-    console.log('DOM Content Loaded');
-    const submitButton = document.getElementById('submitButton');
-    if (submitButton) {
-        submitButton.addEventListener('click', submitRequest);
-    } else {
-        console.error('Submit button not found');
-    }
-
-    const switchExecutorButton = document.getElementById('switchExecutor');
-    if (switchExecutorButton) {
-        switchExecutorButton.addEventListener('click', switchExecutor);
-    } else {
-        console.error('Switch executor button not found');
-    }
-});
+// Restore state
+const previousState = vscode.getState();
+if (previousState) {
+    state = previousState;
+    updateRequestsTable();
+}
 
 // Handle messages from the extension
 window.addEventListener('message', event => {
     const message = event.data;
-    console.log('Received message:', message);
-    
     switch (message.command) {
         case 'updateRequests':
-            console.log('Updating requests list');
-            requests = message.data;
-            updateTable();
+            state.requests = message.data;
+            updateRequestsTable();
+            vscode.setState(state);
             break;
-        case 'requestComplete':
-            console.log('Request completed:', message.data);
-            const { requestId, result } = message.data;
-            requests = requests.map(req => {
-                if (req.id === requestId) {
-                    const updated = new AdditionRequest(req.input1, req.input2);
-                    updated.status = 'completed';
-                    updated.result = result;
-                    return updated;
-                }
-                return req;
+    }
+});
+
+// Update the requests table
+function updateRequestsTable() {
+    const tbody = document.getElementById('requestsTable');
+    if (!tbody) return;
+
+    tbody.innerHTML = '';
+    state.requests.forEach(request => {
+        const row = document.createElement('tr');
+        let actionCell = '';
+        if (request.status === 'pending') {
+            actionCell = `<button class="start-button" data-request-id="${request.id}">Start</button>`;
+        } else if (request.status === 'processing') {
+            actionCell = `<button class="start-button" disabled>Processing...</button>`;
+        } else if (request.status === 'completed') {
+            actionCell = `<span style="color: var(--vscode-charts-green); font-weight: bold;">✔ Done</span>`;
+        } else {
+            actionCell = '';
+        }
+        row.innerHTML = `
+            <td>${request.id}</td>
+            <td>${request.input1} + ${request.input2}</td>
+            <td>${actionCell}</td>
+            <td>${request.result !== undefined ? request.result : '-'}</td>
+        `;
+        tbody.appendChild(row);
+
+        // Add click handler for the Start button
+        const startButton = row.querySelector('.start-button');
+        if (startButton && request.status === 'pending') {
+            startButton.addEventListener('click', () => {
+                vscode.postMessage({
+                    command: 'startProcessing',
+                    data: { requestId: request.id }
+                });
             });
-            updateTable();
-            break;
-        default:
-            console.warn('Unknown message command:', message.command);
+        }
+    });
+}
+
+function submitRequest() {
+    const num1 = document.getElementById('num1') as HTMLInputElement;
+    const num2 = document.getElementById('num2') as HTMLInputElement;
+
+    if (num1.value && num2.value) {
+        vscode.postMessage({
+            command: 'addRequest',
+            data: {
+                input1: Number(num1.value),
+                input2: Number(num2.value)
+            }
+        });
+        // Clear input fields after submit
+        num1.value = '';
+        num2.value = '';
+    }
+}
+
+function switchExecutor() {
+    const select = document.getElementById('executorSelect') as HTMLSelectElement;
+    if (select) {
+        vscode.postMessage({
+            command: 'switchExecutor',
+            data: { executorType: select.value }
+        });
+    }
+}
+
+// Add event listeners when the document is ready
+document.addEventListener('DOMContentLoaded', () => {
+    const submitButton = document.getElementById('submitButton');
+    if (submitButton) {
+        submitButton.addEventListener('click', submitRequest);
+    }
+
+    const executorSelect = document.getElementById('executorSelect');
+    if (executorSelect) {
+        executorSelect.addEventListener('change', switchExecutor);
     }
 }); 

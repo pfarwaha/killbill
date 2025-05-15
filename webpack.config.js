@@ -3,25 +3,22 @@ const path = require('path');
 module.exports = {
   target: 'web',
   mode: 'development',
-  entry: './src/webview/script.ts',
+  entry: {
+    script: './src/webview/script.ts'
+  },
   output: {
     path: path.resolve(__dirname, 'dist', 'webview'),
-    filename: 'webview.js'
+    filename: '[name].js'
   },
   devtool: 'source-map',
   module: {
     rules: [
       {
         test: /\.ts$/,
-        exclude: [/node_modules/, /out\/test/],
+        exclude: /node_modules/,
         use: [
           {
-            loader: 'ts-loader',
-            options: {
-              compilerOptions: {
-                module: 'es6'
-              }
-            }
+            loader: 'ts-loader'
           }
         ]
       }

@@ -4,6 +4,7 @@ import * as vscode from 'vscode';
 import { getTemplate } from './webview/template';
 import { SameThreadExecutor } from './executors/sameThreadExecutor';
 import { MultiThreadedExecutor } from './executors/multiThreadedExecutor';
+import { ExternalProcessExecutor } from './executors/externalProcessExecutor';
 import { RequestExecutor } from './executors/types';
 import { AdditionRequest } from './webview/requests';
 
@@ -43,9 +44,10 @@ class StateManager {
 export function activate(context: vscode.ExtensionContext) {
     console.log('Extension activated');
 
-    // Create both executors
+    // Create all executors
     const sameThreadExecutor = new SameThreadExecutor();
     const multiThreadedExecutor = new MultiThreadedExecutor();
+    const externalProcessExecutor = new ExternalProcessExecutor();
     
     // Use multi-threaded executor by default
     let currentExecutor: RequestExecutor = multiThreadedExecutor;
@@ -68,7 +70,7 @@ export function activate(context: vscode.ExtensionContext) {
             );
 
             // Generate the webview-safe URI for the script
-            const scriptPathOnDisk = vscode.Uri.joinPath(context.extensionUri, 'dist', 'webview', 'webview.js');
+            const scriptPathOnDisk = vscode.Uri.joinPath(context.extensionUri, 'dist', 'webview', 'script.js');
             const scriptUri = currentPanel.webview.asWebviewUri(scriptPathOnDisk);
 
             currentPanel.webview.html = getTemplate(scriptUri.toString());
@@ -77,61 +79,63 @@ export function activate(context: vscode.ExtensionContext) {
                 try {
                     switch (message.command) {
                         case 'addRequest':
-                            // Store the request in memory
-                            const requests = stateManager.addRequest(message.data);
-                            
-                            // Update the webview with the new request
+                            const request = new AdditionRequest(
+                                message.data.input1,
+                                message.data.input2
+                            );
+                            stateManager.addRequest(request);
                             currentPanel?.webview.postMessage({
                                 command: 'updateRequests',
-                                data: requests
+                                data: stateManager.getAllRequests()
                             });
                             break;
 
                         case 'startProcessing':
-                            const request = stateManager.findRequest(message.data.requestId);
-                            if (request) {
+                            const requestToProcess = stateManager.findRequest(message.data.requestId);
+                            if (requestToProcess) {
+                                // Set status to 'processing' before starting
+                                stateManager.updateRequest(
+                                    requestToProcess.id,
+                                    'processing',
+                                    requestToProcess.result
+                                );
+                                currentPanel?.webview.postMessage({
+                                    command: 'updateRequests',
+                                    data: stateManager.getAllRequests()
+                                });
                                 try {
-                                    // Reconstruct the AdditionRequest object
-                                    const reconstructedRequest = new AdditionRequest(request.input1, request.input2);
-                                    reconstructedRequest.id = request.id;
-                                    reconstructedRequest.status = request.status;
-                                    reconstructedRequest.result = request.result;
-
-                                    // Update status to queued before processing
-                                    stateManager.updateRequest(request.id, 'queued');
+                                    const result = await currentExecutor.processRequest(requestToProcess);
+                                    stateManager.updateRequest(
+                                        requestToProcess.id,
+                                        result.status,
+                                        result.result
+                                    );
                                     currentPanel?.webview.postMessage({
                                         command: 'updateRequests',
                                         data: stateManager.getAllRequests()
                                     });
-
-                                    // Process the request using the current executor without awaiting
-                                    currentExecutor.processRequest(reconstructedRequest)
-                                        .then(result => {
-                                            // Update the request in memory
-                                            stateManager.updateRequest(request.id, 'completed', result.result);
-                                            
-                                            // Notify the webview
-                                            currentPanel?.webview.postMessage({
-                                                command: 'requestComplete',
-                                                data: { requestId: request.id, result: result.result }
-                                            });
-                                        })
-                                        .catch(error => {
-                                            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-                                            vscode.window.showErrorMessage(`Failed to process request: ${errorMessage}`);
-                                        });
                                 } catch (error: unknown) {
                                     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-                                    vscode.window.showErrorMessage(`Failed to process request: ${errorMessage}`);
+                                    vscode.window.showErrorMessage(`Error processing request: ${errorMessage}`);
                                 }
                             }
                             break;
 
                         case 'switchExecutor':
-                            // Switch between executors
-                            currentExecutor = message.data.useMultiThreaded ? multiThreadedExecutor : sameThreadExecutor;
+                            // Switch between executors based on selection
+                            switch (message.data.executorType) {
+                                case 'single':
+                                    currentExecutor = sameThreadExecutor;
+                                    break;
+                                case 'multi':
+                                    currentExecutor = multiThreadedExecutor;
+                                    break;
+                                case 'external':
+                                    currentExecutor = externalProcessExecutor;
+                                    break;
+                            }
                             vscode.window.showInformationMessage(
-                                `Switched to ${message.data.useMultiThreaded ? 'multi-threaded' : 'single-threaded'} executor`
+                                `Switched to ${message.data.executorType} executor`
                             );
                             break;
                     }
