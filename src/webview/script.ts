@@ -5,6 +5,7 @@ declare function acquireVsCodeApi(): {
 import { AdditionRequest } from './requests';
 
 let requests: AdditionRequest[] = [];
+let isMultiThreaded = true;
 
 function submitRequest() {
     console.log('Attempting to submit request...');
@@ -36,6 +37,22 @@ function startProcessing(requestId: string) {
         command: 'startProcessing',
         data: { requestId }
     });
+}
+
+function switchExecutor() {
+    isMultiThreaded = !isMultiThreaded;
+    vscode.postMessage({
+        command: 'switchExecutor',
+        data: { useMultiThreaded: isMultiThreaded }
+    });
+    updateExecutorButton();
+}
+
+function updateExecutorButton() {
+    const button = document.getElementById('switchExecutor');
+    if (button) {
+        button.textContent = isMultiThreaded ? 'Switch to Single Thread' : 'Switch to Multi Thread';
+    }
 }
 
 function updateTable() {
@@ -89,6 +106,13 @@ document.addEventListener('DOMContentLoaded', () => {
         submitButton.addEventListener('click', submitRequest);
     } else {
         console.error('Submit button not found');
+    }
+
+    const switchExecutorButton = document.getElementById('switchExecutor');
+    if (switchExecutorButton) {
+        switchExecutorButton.addEventListener('click', switchExecutor);
+    } else {
+        console.error('Switch executor button not found');
     }
 });
 

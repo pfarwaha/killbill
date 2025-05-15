@@ -15,8 +15,12 @@ export class AdditionRequest implements ExecutionRequest<number, number, number>
     }
 
     async execute(): Promise<number> {
-        // Simulate some processing time
-        await new Promise(resolve => setTimeout(resolve, 5000));
+        // Simulate CPU-intensive work that blocks the thread
+        const start = Date.now();
+        while (Date.now() - start < 2000) {
+            // Busy wait - this will actually block the thread
+            Math.sqrt(Math.random() * 1000000);
+        }
         return this.input1 + this.input2;
     }
 } 

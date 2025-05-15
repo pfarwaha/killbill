@@ -33,6 +33,19 @@ export const styles = `
         opacity: 0.5;
         cursor: not-allowed;
     }
+    .executor-controls {
+        margin: 20px 0;
+        padding: 10px;
+        background: var(--vscode-editor-background);
+        border: 1px solid var(--vscode-input-border);
+    }
+    .switch-executor {
+        background: var(--vscode-button-secondaryBackground);
+        color: var(--vscode-button-secondaryForeground);
+    }
+    .switch-executor:hover {
+        background: var(--vscode-button-secondaryHoverBackground);
+    }
     .requests-table {
         width: 100%;
         margin-top: 20px;

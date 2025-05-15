@@ -21,6 +21,10 @@ export function getTemplate(scriptUri: string): string {
             </div>
             <button id="submitButton">Submit</button>
 
+            <div class="executor-controls">
+                <button id="switchExecutor" class="switch-executor">Switch to Single Thread</button>
+            </div>
+
             <table class="requests-table">
                 <thead>
                     <tr>
