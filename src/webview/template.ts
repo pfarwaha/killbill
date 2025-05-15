@@ -1,6 +1,6 @@
 import { styles } from './styles';
 
-export function getTemplate(): string {
+export function getTemplate(scriptUri: string): string {
     return `
         <!DOCTYPE html>
         <html lang="en">
@@ -34,7 +34,7 @@ export function getTemplate(): string {
                 </tbody>
             </table>
 
-            <script src="webview.js"></script>
+            <script src="${scriptUri}"></script>
         </body>
         </html>
     `;

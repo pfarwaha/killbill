@@ -51,6 +51,9 @@ export const styles = `
     .status-pending {
         color: var(--vscode-charts-yellow);
     }
+    .status-queued {
+        color: var(--vscode-charts-orange);
+    }
     .status-processing {
         color: var(--vscode-charts-blue);
     }

@@ -4,7 +4,7 @@ export class AdditionRequest implements ExecutionRequest<number, number, number>
     id: string;
     input1: number;
     input2: number;
-    status: 'pending' | 'processing' | 'completed';
+    status: 'pending' | 'queued' | 'processing' | 'completed';
     result?: number;
 
     constructor(num1: number, num2: number) {
@@ -16,7 +16,7 @@ export class AdditionRequest implements ExecutionRequest<number, number, number>
 
     async execute(): Promise<number> {
         // Simulate some processing time
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, 5000));
         return this.input1 + this.input2;
     }
 } 

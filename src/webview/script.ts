@@ -53,6 +53,8 @@ function updateTable() {
             '<td>' +
                 (request.status === 'pending' ? 
                     '<button class="process-button" data-request-id="' + request.id + '">Start</button>' :
+                    request.status === 'queued' ? 
+                    '<button disabled>Queued...</button>' :
                     request.status === 'processing' ? 
                     '<button disabled>Processing...</button>' :
                     '<button disabled>Completed</button>'
