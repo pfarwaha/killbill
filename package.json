@@ -1,0 +1,47 @@
+{
+  "name": "killbill",
+  "displayName": "killbill",
+  "description": "A Killer Extension for Bill",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onCommand:killbill.helloWorld"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "killbill.helloWorld",
+        "title": "Open KillBill"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./ && webpack --mode production",
+    "watch": "tsc -watch -p ./ & webpack --mode development --watch",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.6",
+    "@types/node": "20.x",
+    "@types/vscode": "^1.85.0",
+    "@types/webpack": "^5.28.5",
+    "@typescript-eslint/eslint-plugin": "^6.13.1",
+    "@typescript-eslint/parser": "^6.13.1",
+    "@vscode/test-electron": "^2.3.8",
+    "eslint": "^8.54.0",
+    "mocha": "^10.2.0",
+    "ts-loader": "^9.5.1",
+    "typescript": "^5.3.2",
+    "webpack": "^5.90.3",
+    "webpack-cli": "^5.1.4"
+  }
+}
